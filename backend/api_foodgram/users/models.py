@@ -1,4 +1,4 @@
-from django.contrib.auth.base_user import AbstractBaseUser
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import UniqueConstraint
 
@@ -11,7 +11,7 @@ LIST_OF_ROLES = [
 ]
 
 
-class User(AbstractBaseUser):
+class User(AbstractUser):
     """
     Модель для управления пользователями. Модель расширена
     ролью (админ, пользователь) и подтверждающим кодом.
@@ -28,42 +28,34 @@ class User(AbstractBaseUser):
         unique=True,
         blank=False,
         null=False,
-        verbose_name='Уникальный юзернейм'
+        verbose_name='Логин'
     )
     first_name = models.CharField(
         verbose_name='Имя',
         max_length=150,
-        blank=True,
+        blank=False,
         null=False,
     )
     last_name = models.CharField(
         verbose_name='Фамилия',
         max_length=150,
-        blank=True,
+        blank=False,
         null=False,
     )
-    user_permissions = models.CharField(
+    permissions = models.CharField(
         verbose_name='Роль',
         max_length=50,
         choices=LIST_OF_ROLES,
         default=USER,
-        blank=True,
-    )
-    auth_token = models.CharField(
-        verbose_name='Токен',
-        max_length=200,
-        null=True,
-        blank=False,
-        default='null'
     )
 
     @property
     def is_admin(self):
-        return self.user_permissions == ADMIN
+        return self.permissions == ADMIN
 
     @property
     def is_user(self):
-        return self.user_permissions == USER
+        return self.permissions == USER
 
     class Meta:
         constraints = [

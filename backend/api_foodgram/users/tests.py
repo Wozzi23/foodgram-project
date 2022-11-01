@@ -15,7 +15,7 @@ test_user_admin = {
     'email': 'test_admin@test.ru',
     'first_name': 'ilon',
     'last_name': 'musk',
-    'user_permissions': 'admin'
+    'permissions': 'admin'
 }
 
 
@@ -36,7 +36,7 @@ class UserModelTest(TestCase):
             email=test_user_admin['email'],
             first_name=test_user_admin['first_name'],
             last_name=test_user_admin['last_name'],
-            user_permissions=test_user_admin['user_permissions']
+            permissions=test_user_admin['permissions']
         )
 
     def test_user_create_form(self):
@@ -47,12 +47,12 @@ class UserModelTest(TestCase):
     def test_user_permissions_form(self):
         """Тест доступа пользователя по умолчанию"""
         user = self.user
-        self.assertEqual(user.user_permissions, 'user')
+        self.assertEqual(user.permissions, 'user')
 
     def test_user_permissions_admin_form(self):
         """Тест создания пользователя с ролью администратора"""
         user = self.user_admin
-        self.assertEqual(user.user_permissions, 'admin')
+        self.assertEqual(user.permissions, 'admin')
 
     def test_user_unique_form(self):
         """Тест создания пользователя с неуникальными username и email"""
@@ -66,11 +66,11 @@ class UserModelTest(TestCase):
         """verbose_name в полях совпадает с ожидаемым."""
         user = self.user
         field_verbose = {
-            'username': 'Уникальный юзернейм',
+            'username': 'Логин',
             'email': 'Адрес электронной почты',
             'first_name': 'Имя',
             'last_name': 'Фамилия',
-            'user_permissions': 'Роль',
+            'permissions': 'Роль',
 
         }
         for field, expected_value in field_verbose.items():

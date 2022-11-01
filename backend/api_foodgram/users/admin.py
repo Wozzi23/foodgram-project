@@ -8,8 +8,8 @@ class UserAdmin(admin.ModelAdmin):
     """Класс, формирующий админ-панель сайта, раздел: пользователи."""
     list_display = (
         'username', 'email', 'first_name',
-        'last_name', 'user_permissions', 'auth_token',
+        'last_name', 'permissions',
     )
-    search_fields = ('username', 'user_permissions',)
+    search_fields = ('username', 'permissions',)
     list_filter = ('username',)
     empty_value_display = '--пустое поле--'
