@@ -37,6 +37,7 @@ class Test01IngredientsAPI:
             'от неавторизованного пользователя возвращается статус 200'
         )
         data = response.json()
+        print(data)
         assert (
                 len(data) == 1
                 and data[0].get('id') == ingredients.id
@@ -84,15 +85,15 @@ class Test01IngredientsAPI:
     def test_06_ingredients_id_method_not_allowed(self, client, ingredients):
         response = client.delete(f'/api/ingredients/{ingredients.id}/')
         assert response.status_code == 405, (
-            'Проверьте, что при DELETE запросе `/api/ingredients/` возвращаете статус 405'
+            'Проверьте, что при DELETE запросе `/api/ingredients/{id}/` возвращаете статус 405'
         )
-        response = client.put('/api/ingredients/')
+        response = client.put(f'/api/ingredients/{ingredients.id}/')
         assert response.status_code == 405, (
-            'Проверьте, что при PUT запросе `/api/ingredients/` возвращаете статус 405'
+            'Проверьте, что при PUT запросе `/api/ingredients/{id}/` возвращаете статус 405'
         )
-        response = client.patch('/api/ingredients/')
+        response = client.patch(f'/api/ingredients/{ingredients.id}/')
         assert response.status_code == 405, (
-            'Проверьте, что при PATCH запросе `/api/ingredients/` возвращаете статус 405'
+            'Проверьте, что при PATCH запросе `/api/ingredients/{id}/` возвращаете статус 405'
         )
 
     @pytest.mark.django_db(transaction=True)

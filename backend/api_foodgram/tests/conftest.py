@@ -1,7 +1,6 @@
 import pytest
 
 
-
 @pytest.fixture
 def user_superuser(django_user_model):
     return django_user_model.objects.create_superuser(
@@ -27,6 +26,16 @@ def user(django_user_model):
     return django_user_model.objects.create_user(
         username='TestUser',
         email='testuser@yamdb.fake',
+        password='123456789',
+        permissions='user',
+    )
+
+
+@pytest.fixture
+def user_test(django_user_model):
+    return django_user_model.objects.create_user(
+        username='TestUser2',
+        email='testuser2@yamdb.fake',
         password='123456789',
         permissions='user',
     )
@@ -101,3 +110,39 @@ def search_ingredients():
         measurement_unit='кг'
     )
     return search_ingredients
+
+
+@pytest.fixture
+def tags():
+    from recipes.models import Tags
+    tag = Tags.objects.create(
+        name='Test_tag',
+        color='#6AFF9B',
+        slug='Test_slug'
+    )
+    return tag
+
+
+@pytest.fixture
+def recipe(ingredients, user, tags):
+    from recipes.models import Recipes
+    create_recipe = Recipes.objects.create(
+        author=user,
+        name='Test recipe',
+        text='Test Text',
+        cooking_time=2
+    )
+    create_recipe.tags.add(tags)
+    create_recipe.ingredients.add(ingredients, through_defaults={'amount': 3})
+    return create_recipe
+
+
+@pytest.fixture
+def ingredients_in_recipe(ingredients, recipe):
+    from recipes.models import IngredientInRecipe
+    create_ingredients_in_recipe = IngredientInRecipe.objects.create(
+        recipe=recipe,
+        ingredient=ingredients,
+        amount=3
+    )
+    return create_ingredients_in_recipe

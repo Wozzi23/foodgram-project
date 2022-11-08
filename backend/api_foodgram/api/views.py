@@ -1,9 +1,13 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
 from rest_framework import viewsets, filters
 
+
+from api.filters import RecipesFilters
 from api.paginations import CustomPageNumberPagination
-from api.serializers import IngredientsSerializer
-from recipes.models import Ingredients
+from api.permissions import ReadAnyOrAuthorOnly
+from api.serializers import IngredientsSerializer, TagsSerializer, RecipesListSerializer
+from recipes.models import Ingredients, Tags, Recipes
 
 
 class BaseUserViewSet(UserViewSet):
@@ -49,3 +53,22 @@ class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['^name', ]
     pagination_class = None
+
+
+class TagsViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Tags.objects.all()
+    serializer_class = TagsSerializer
+    pagination_class = None
+
+
+class RecipesViewSet(viewsets.ModelViewSet):
+    queryset = Recipes.objects.all()
+    serializer_class = RecipesListSerializer
+    pagination_class = CustomPageNumberPagination
+    permission_classes = (ReadAnyOrAuthorOnly,)
+    filter_backends = [DjangoFilterBackend, ]
+    filterset_class = RecipesFilters
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options', 'trace']
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
