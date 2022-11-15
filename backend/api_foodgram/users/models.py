@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.db.models import UniqueConstraint
+from django.db.models import UniqueConstraint, CheckConstraint, Q
 
 ADMIN = 'admin'
 USER = 'user'
@@ -14,7 +14,7 @@ LIST_OF_ROLES = [
 class User(AbstractUser):
     """
     Модель для управления пользователями. Модель расширена
-    ролью (админ, пользователь) и подтверждающим кодом.
+    ролью (админ, пользователь).
     """
     email = models.EmailField(
         max_length=254,
@@ -64,8 +64,47 @@ class User(AbstractUser):
                 name='unique_user')
         ]
         ordering = ('id',)
-        verbose_name = 'Пользователь'
+        verbose_name = 'Пользователя'
         verbose_name_plural = 'Пользователи'
 
     def __str__(self):
         return self.username
+
+
+class Subscriptions(models.Model):
+    """
+    Модель подписки пользователя на авторов.
+    Уникальность связки author и user.
+    Добавлена проверка на запрет подписки на
+    самого себя.
+    """
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор рецептов',
+        related_name='subscribe_author'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Подписчик',
+        related_name='subscribe_user'
+    )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=['author', 'user'],
+                name='unique_subscribe'
+            )
+        ]
+        verbose_name = 'Подписку'
+        verbose_name_plural = 'Подписки'
+
+    def __str__(self):
+        return f'Пользователь {self.user.username} подписан на {self.author.username}.'
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.author == self.user:
+            raise ValidationError('Нельзя подписаться на самого себя')

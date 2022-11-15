@@ -130,7 +130,8 @@ def recipe(ingredients, user, tags):
         author=user,
         name='Test recipe',
         text='Test Text',
-        cooking_time=2
+        cooking_time=2,
+        image='http://foodgram.example.org/media/recipes/images/image.jpeg'
     )
     create_recipe.tags.add(tags)
     create_recipe.ingredients.add(ingredients, through_defaults={'amount': 3})
@@ -146,3 +147,13 @@ def ingredients_in_recipe(ingredients, recipe):
         amount=3
     )
     return create_ingredients_in_recipe
+
+
+@pytest.fixture
+def favorite_recipe(user, recipe):
+    from recipes.models import FavoriteRecipes
+    create_favorite_recipe = FavoriteRecipes.objects.create(
+        recipe=recipe,
+        user=user,
+    )
+    return create_favorite_recipe

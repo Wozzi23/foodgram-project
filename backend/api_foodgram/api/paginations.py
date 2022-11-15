@@ -1,6 +1,11 @@
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import LimitOffsetPagination
 
 
-class CustomPageNumberPagination(PageNumberPagination):
-    page_size = 2
-    page_size_query_param = 'limit'
+class CustomLimitOffsetPagination(LimitOffsetPagination):
+    """
+    Кастомизация стандартной модели паджинации LimitOffsetPagination
+    изменено поле offset на page. Стандартная настройка на уровне проекта
+    'PAGE_SIZE': 10, если необходимо переопределить параметр в
+    соответствии с потребностями.
+    """
+    offset_query_param = 'page'

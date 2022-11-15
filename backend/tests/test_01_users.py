@@ -97,7 +97,7 @@ class Test01UserAPI:
         response_json = response.json()
         empty_fields = 'email'
         assert (empty_fields in response_json.keys()
-                and response_json[empty_fields][0] == 'Пользователь с таким Адрес электронной почты уже существует.'), (
+                and response_json[empty_fields][0] == 'Пользователя с таким Адрес электронной почты уже существует.'), (
             'Проверьте, что при POST запросе `/api/users/` с уже существующим email, возвращаете статус 400. '
             'Пользователь с таким Адрес электронной почты уже существует.'
         )
@@ -108,12 +108,12 @@ class Test01UserAPI:
         response = client.post('/api/users/', data=duplicate_username)
         assert response.status_code == 400, (
             'Проверьте, что при POST запросе `/api/users/` с уже существующим username, возвращаете статус 400. '
-            'Пользователь с таким Логин уже существует.'
+            'Пользователя с таким Логин уже существует.'
         )
         response_json = response.json()
         empty_fields = 'username'
         assert (empty_fields in response_json.keys()
-                and response_json[empty_fields][0] == 'Пользователь с таким Логин уже существует.'), (
+                and response_json[empty_fields][0] == 'Пользователя с таким Логин уже существует.'), (
             'Проверьте, что при POST запросе `/api/users/` с уже существующим username, возвращаете статус 400. '
             'Пользователь с таким Логин уже существует.'
         )

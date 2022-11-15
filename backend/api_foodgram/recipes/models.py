@@ -6,6 +6,10 @@ from users.models import User
 
 
 class Ingredients(models.Model):
+    """
+    Модель ингридиентов. Сортировка по названию.
+    Проверка уникальности названия.
+    """
     name = models.CharField(
         max_length=200,
         unique=True,
@@ -32,6 +36,10 @@ class Ingredients(models.Model):
 
 
 class Tags(models.Model):
+    """
+    Модель тегов. Сортировка по slug.
+    Проверка уникальности slug.
+    """
     name = models.CharField(
         max_length=200,
         verbose_name='Название тега'
@@ -61,6 +69,10 @@ class Tags(models.Model):
 
 
 class Recipes(models.Model):
+    """
+    Модель тегов. Сортировка по дате создания.
+    Проверка уникальности связки name и author.
+    """
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -115,6 +127,12 @@ class Recipes(models.Model):
 
 
 class IngredientInRecipe(models.Model):
+    """
+    Модель связки ингридиентов и рецептов.
+    добавляет поле amount для конкретного
+    ингридиента в рецепте. Проверка уникальности
+    связки ingredient и recipe.
+    """
     ingredient = models.ForeignKey(
         Ingredients,
         on_delete=models.DO_NOTHING,
@@ -132,6 +150,8 @@ class IngredientInRecipe(models.Model):
     )
 
     class Meta:
+        verbose_name = 'Количество ингридиента в рецепте'
+        verbose_name_plural = 'Количество ингридиентов в рецепте'
         constraints = [
             UniqueConstraint(
                 fields=['ingredient', 'recipe'],
@@ -141,3 +161,59 @@ class IngredientInRecipe(models.Model):
 
     def __str__(self):
         return f'{self.ingredient.name} в количестве {self.amount} {self.ingredient.measurement_unit}'
+
+
+class UserRecipeAbstractModel(models.Model):
+    """
+    Абстрактная модель связки пользователя и
+    рецепта. Используется для подписки на рецепт и
+    добавления рецепта в список покупок.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Позователь',
+    )
+    recipe = models.ForeignKey(
+        Recipes,
+        on_delete=models.CASCADE,
+        verbose_name='Рецепт',
+    )
+
+    class Meta:
+        abstract = True
+
+
+class FavoriteRecipes(UserRecipeAbstractModel):
+    """
+    Модель подписки пользователя на рецепт.
+    Проверка уникальности user и recipe.
+    """
+    class Meta:
+        verbose_name = 'Избранный рецепт'
+        verbose_name_plural = 'Избранные рецепты'
+        constraints = [
+            UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_favorite_recipe'
+            ),
+        ]
+
+    def __str__(self):
+        return f'У {self.user} в избранном {self.recipe}.'
+
+
+class ShoppingCart(UserRecipeAbstractModel):
+    """
+    Модель формирует список покупок и конкретного пользователя.
+    Проверка уникальности user и recipe.
+    """
+    class Meta:
+        verbose_name = 'Список покупок'
+        verbose_name_plural = 'Списки покупок'
+        constraints = [
+            UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_shopping_cart'
+            ),
+        ]
