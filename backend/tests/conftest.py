@@ -1,4 +1,13 @@
+import tempfile
+
 import pytest
+
+
+@pytest.fixture()
+def mock_media(settings):
+    with tempfile.TemporaryDirectory() as temp_directory:
+        settings.MEDIA_ROOT = temp_directory
+        yield temp_directory
 
 
 @pytest.fixture
@@ -124,7 +133,7 @@ def tags():
 
 
 @pytest.fixture
-def recipe(ingredients, user, tags):
+def recipe(ingredients, user, tags, mock_media):
     from recipes.models import Recipes
     create_recipe = Recipes.objects.create(
         author=user,

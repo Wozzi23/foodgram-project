@@ -1,7 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from rest_framework.generics import get_object_or_404
 
 
 class Test01RecipesAPI:
@@ -173,7 +172,7 @@ class Test01RecipesAPI:
         )
 
     @pytest.mark.django_db(transaction=True)
-    def test_09_recipes_post(self, user_client, tags, ingredients):
+    def test_09_recipes_post(self, user_client, tags, ingredients, mock_media):
         data = {}
         response = user_client.post('/api/recipes/', data=data, format='json')
         assert response.status_code == 400, (
