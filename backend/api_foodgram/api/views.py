@@ -8,6 +8,7 @@ from reportlab.pdfbase import pdfmetrics, ttfonts
 from reportlab.pdfgen import canvas
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -19,7 +20,7 @@ from api.permissions import ReadAnyOrAuthorOnly
 from api.serializers import IngredientsSerializer, TagsSerializer, RecipesSerializer, RecipeMinifiedSerializer, \
     SubscriptionsSerializer
 from recipes.models import Ingredients, Tags, Recipes, FavoriteRecipes, ShoppingCart, IngredientInRecipe
-from users.models import Subscriptions, User
+from users.models import User
 
 
 class BaseUserViewSet(UserViewSet):
@@ -88,23 +89,27 @@ class SubscribeAPI(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, id):
-        if request.method == 'POST':
-            author = get_object_or_404(User, id=id)
-            sub, create = Subscriptions.objects.get_or_create(user=self.request.user, author=author)
-            a2 = User.objects.filter(id=id).prefetch_related('recipes').annotate(recipes_count=Count('recipes'))
-            if create:
-                serializer = SubscriptionsSerializer(a2.first(),
-                                                     context={'request': self.request}, )
-                return Response(serializer.data,
-                                status=status.HTTP_201_CREATED)
-            else:
-                return Response({'errors': 'Вы уже подписаны на данного автора'}, status=status.HTTP_400_BAD_REQUEST)
+        user = self.request.user
+        if user.pk == id:
+            raise ValidationError({'errors': 'Нельзя подписаться на самого себя'})
+        author = get_object_or_404(User.objects.prefetch_related('recipes').annotate(recipes_count=Count('recipes')),
+                                   id=id)
+        is_subscribed = user.subscribe_user.filter(author=author).exists()
+        if is_subscribed:
+            return Response({'errors': 'Вы уже подписаны на данного автора'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            user.subscribe_user.create(author=author)
+            serializer = SubscriptionsSerializer(author,
+                                                 context={'request': self.request}, )
+            return Response(serializer.data,
+                            status=status.HTTP_201_CREATED)
 
     def delete(self, request, id):
         author = get_object_or_404(User, id=id)
-        subscribe = Subscriptions.objects.filter(user=self.request.user, author=author)
-        if subscribe.exists():
-            subscribe.delete()
+        user = self.request.user
+        is_subscribed = user.subscribe_user.filter(author=author)
+        if is_subscribed.exists():
+            is_subscribed.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
             return Response({'errors': 'Вы не подписанны на этого автора'}, status=status.HTTP_400_BAD_REQUEST)

@@ -95,7 +95,7 @@ class Subscriptions(models.Model):
         constraints = [
             UniqueConstraint(
                 fields=['author', 'user'],
-                name='unique_subscribe'
+                name='unique_subscribe',
             )
         ]
         verbose_name = 'Подписку'
@@ -108,3 +108,10 @@ class Subscriptions(models.Model):
         from django.core.exceptions import ValidationError
         if self.author == self.user:
             raise ValidationError('Нельзя подписаться на самого себя')
+
+    def save(self, *args, **kwargs):
+        from django.core.exceptions import ValidationError
+        if self.author == self.user:
+            raise ValidationError('Нельзя подписаться на самого себя')
+        else:
+            super().save(*args, **kwargs)

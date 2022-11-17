@@ -157,3 +157,23 @@ def favorite_recipe(user, recipe):
         user=user,
     )
     return create_favorite_recipe
+
+
+@pytest.fixture
+def subscriptions(user, admin):
+    from users.models import Subscriptions
+    create_subscriptions = Subscriptions.objects.create(
+        author=admin,
+        user=user,
+    )
+    return create_subscriptions
+
+
+@pytest.fixture
+def shopping_cart(user, recipe):
+    from recipes.models import ShoppingCart
+    create_shopping_cart = ShoppingCart.objects.create(
+        recipe=recipe,
+        user=user,
+    )
+    return create_shopping_cart

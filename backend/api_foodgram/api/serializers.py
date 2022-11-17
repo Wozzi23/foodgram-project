@@ -1,12 +1,11 @@
 import base64
 
-from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 
 from api import paginations
-from recipes.models import Ingredients, Tags, Recipes, IngredientInRecipe, FavoriteRecipes, ShoppingCart
-from users.models import User, Subscriptions
+from recipes.models import Ingredients, Tags, Recipes, IngredientInRecipe
+from users.models import User
 
 
 class SignUpSerializer(serializers.ModelSerializer):
@@ -31,12 +30,10 @@ class SignUpSerializer(serializers.ModelSerializer):
         Функция обработки поля is_subscribed на основе
         связи пользователя и автора через модель Subscriptions.
         """
-        if self.context['request'].user.is_authenticated:
-            try:
-                Subscriptions.objects.get(user=self.context['request'].user, author_id=obj.id)
-                return True
-            except ObjectDoesNotExist:
-                return False
+        user = self.context['request'].user
+        if user.is_authenticated:
+            subscribe_user = user.subscribe_user.filter(author=obj).exists()
+            return subscribe_user
         return False
 
     def to_representation(self, instance):
@@ -195,7 +192,7 @@ class RecipesSerializer(RecipeMinifiedSerializer):
 
     class Meta:
         model = Recipes
-        read_only_fields = ('id', 'author',)
+        read_only_fields = ('id', 'author', 'is_favorited', 'is_in_shopping_cart',)
         fields = (
             'id',
             'tags',
@@ -224,13 +221,12 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         """
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
-        recipe = Recipes.objects.create(**validated_data)
+        recipe = super().create(validated_data)
         for tag in tags:
             recipe.tags.add(tag['id'])
         for ingredient in ingredients:
-            IngredientInRecipe.objects.create(
+            recipe.recipe_ingredients.create(
                 ingredient=ingredient['id'],
-                recipe=recipe,
                 amount=ingredient['amount']
             )
         return recipe
@@ -247,9 +243,8 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         for tag in tags:
             recipe.tags.add(tag['id'])
         for ingredient in ingredients:
-            IngredientInRecipe.objects.create(
+            recipe.recipe_ingredients.create(
                 ingredient=ingredient['id'],
-                recipe=recipe,
                 amount=ingredient['amount']
             )
         return instance
@@ -259,9 +254,9 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         Валидация уникальности имени рецепта и автора для исключения
         попадания нескольких одинаковых рецептов в модели.
         """
-        if self.context['request'].method == 'POST':
-            if Recipes.objects.filter(author=self.context.get('request').user, name=attrs['name']).exists():
-                raise serializers.ValidationError({'name': 'Вы уже создали такой рецепт'})
+        no_uniq_recipe = self.context['request'].user.recipes.filter(name=attrs['name']).exists()
+        if self.context['request'].method == 'POST' and no_uniq_recipe:
+            raise serializers.ValidationError({'name': 'Вы уже создали такой рецепт'})
         return attrs
 
     @staticmethod
@@ -300,13 +295,9 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         связи пользователя и рецепта через модель FavoriteRecipes.
         """
         user = self.context['request'].user
-        recipe = Recipes.objects.get(id=obj.id)
         if user.is_authenticated:
-            try:
-                FavoriteRecipes.objects.get(user=user, recipe=recipe)
-                return True
-            except ObjectDoesNotExist:
-                return False
+            is_favorited = user.favoriterecipes_set.filter(recipe=obj).exists()
+            return is_favorited
         return False
 
     def get_is_in_shopping_cart(self, obj):
@@ -315,13 +306,9 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         связи пользователя и рецепта через модель ShoppingCart.
         """
         user = self.context['request'].user
-        recipe = Recipes.objects.get(id=obj.id)
         if user.is_authenticated:
-            try:
-                ShoppingCart.objects.get(user=user, recipe=recipe)
-                return True
-            except ObjectDoesNotExist:
-                return False
+            in_shopping_cart = user.shoppingcart_set.filter(recipe=obj).exists()
+            return in_shopping_cart
         return False
 
 
@@ -336,7 +323,7 @@ class SubscriptionsSerializer(SignUpSerializer):
 
     class Meta:
         model = User
-        read_only_fields = ('id',)
+        read_only_fields = ('email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'recipes', 'recipes_count')
         fields = (
             'email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
