@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.db.models import Count
 
+from import_export import resources
+from import_export.admin import ImportExportModelAdmin
+
 from recipes.models import (FavoriteRecipes,
                             IngredientInRecipe,
                             Ingredients,
@@ -8,12 +11,20 @@ from recipes.models import (FavoriteRecipes,
                             Tags)
 
 
+class IngredientsResource(resources.ModelResource):
+    """Класс для иморта ингридиентов"""
+    class Meta:
+        model = Ingredients
+        fields = ('id', 'name', 'measurement_unit',)
+
+
 @admin.register(Ingredients)
-class IngredientsAdmin(admin.ModelAdmin):
+class IngredientsAdmin(ImportExportModelAdmin):
     """Класс, формирующий админ-панель сайта, раздел: Ингридиенты."""
     list_display = (
         'name', 'measurement_unit',
     )
+    resource_classes = [IngredientsResource]
     search_fields = ('name',)
     list_filter = ('name',)
     empty_value_display = '--пустое поле--'
