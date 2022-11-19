@@ -148,7 +148,7 @@ class Test01ShoppingCartAPI:
         )
 
     @pytest.mark.django_db(transaction=True)
-    def test_10_is_favorite_in_recipe_auth(self, user_client, recipe):
+    def test_10_is_in_shopping_cart_in_recipe_auth(self, user_client, recipe):
         response = user_client.get(f'/api/recipes/')
         assert response.status_code == 200, (
             'Проверьте, что при GET запросе `/api/recipes/` '
@@ -186,4 +186,55 @@ class Test01ShoppingCartAPI:
             'Проверьте, что при GET запросе `/api/recipes/` в выдаче'
             'после добавления рецепта в список покупок изменяется статус'
             'на True'
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_11_download_shopping_cart(self, user_client, shopping_cart, admin_client):
+        response = user_client.get(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 200, (
+            'Проверьте, что при GET запросе `/api/recipes/download_shopping_cart/`'
+            'авторизованному клиенту возвращается статус 200'
+        )
+        assert response.headers['Content-Type'] == 'application/pdf', (
+            'Проверьте, что при GET запросе `/api/recipes/download_shopping_cart/`'
+            'авторизованному клиенту возвращается ответ в формате pdf'
+        )
+        response = admin_client.get(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 400, (
+            'Проверьте, что при GET запросе `/api/recipes/download_shopping_cart/`'
+            'авторизованному клиенту у которого нет рецептов в списке покупок'
+            'возвращается статус 400'
+        )
+        data = response.json()
+        assert data['errors'] == 'У вас нет рецептов с списке покупок', (
+            'Проверьте, что при GET запросе `/api/recipes/download_shopping_cart/`'
+            'авторизованному клиенту у которого нет рецептов в списке покупок'
+            'в ответе есть описание ошибки'
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_12_download_shopping_cart_no_auth(self, client, shopping_cart, admin_client):
+        response = client.get(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 401, (
+            'Проверьте, что при GET запросе `/api/recipes/download_shopping_cart/`'
+            'неавторизованному клиенту возвращается статус 401'
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_13_download_shopping_cart_not_allowed(self, admin_client):
+        response = admin_client.post(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 405, (
+            'Проверьте, что при POST запросе `/api/recipes/download_shopping_cart/` возвращаете статус 405'
+        )
+        response = admin_client.put(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 405, (
+            'Проверьте, что при PUT запросе `/api/recipes/download_shopping_cart/` возвращаете статус 405'
+        )
+        response = admin_client.patch(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 405, (
+            'Проверьте, что при PATCH запросе `/api/recipes/download_shopping_cart/` возвращаете статус 405'
+        )
+        response = admin_client.delete(f'/api/recipes/download_shopping_cart/')
+        assert response.status_code == 405, (
+            'Проверьте, что при DELETE запросе `/api/recipes/download_shopping_cart/` возвращаете статус 405'
         )

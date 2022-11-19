@@ -1,10 +1,16 @@
 import base64
 
+from api import paginations
+
 from django.core.files.base import ContentFile
+
+from recipes.models import (IngredientInRecipe,
+                            Ingredients,
+                            Recipes,
+                            Tags)
+
 from rest_framework import serializers
 
-from api import paginations
-from recipes.models import Ingredients, Tags, Recipes, IngredientInRecipe
 from users.models import User
 
 
@@ -18,9 +24,19 @@ class SignUpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        read_only_fields = ('id', 'is_subscribed')
+        read_only_fields = (
+            'id',
+            'is_subscribed'
+        )
         fields = (
-            'email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'password')
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'is_subscribed',
+            'password'
+        )
         extra_kwargs = {
             'password': {'write_only': True},
         }
@@ -32,8 +48,8 @@ class SignUpSerializer(serializers.ModelSerializer):
         """
         user = self.context['request'].user
         if user.is_authenticated:
-            subscribe_user = user.subscribe_user.filter(author=obj).exists()
-            return subscribe_user
+            return user.subscribe_user.filter(
+                author=obj).exists()
         return False
 
     def to_representation(self, instance):
@@ -79,14 +95,14 @@ class IngredientRecipeRepresentationSerializer(IngredientsSerializer):
     amount для реализации количества ингридиента в конкретном
     рецепте
     """
+
     def to_representation(self, instance):
-        instances = {
+        return {
             'id': instance.ingredient.id,
             'name': instance.ingredient.name,
             'measurement_unit': instance.ingredient.measurement_unit,
             'amount': instance.amount
         }
-        return instances
 
 
 class IngredientsInRecipeSerializer(serializers.ModelSerializer):
@@ -192,7 +208,12 @@ class RecipesSerializer(RecipeMinifiedSerializer):
 
     class Meta:
         model = Recipes
-        read_only_fields = ('id', 'author', 'is_favorited', 'is_in_shopping_cart',)
+        read_only_fields = (
+            'id',
+            'author',
+            'is_favorited',
+            'is_in_shopping_cart',
+        )
         fields = (
             'id',
             'tags',
@@ -212,7 +233,10 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         по полю ingredients.
         """
         res = super().to_representation(instance)
-        res['ingredients'] = IngredientRecipeRepresentationSerializer(instance.recipe_ingredients.all(), many=True).data
+        res['ingredients'] = (
+            IngredientRecipeRepresentationSerializer(
+                instance.recipe_ingredients.all(), many=True).data
+        )
         return res
 
     def create(self, validated_data):
@@ -254,9 +278,14 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         Валидация уникальности имени рецепта и автора для исключения
         попадания нескольких одинаковых рецептов в модели.
         """
-        no_uniq_recipe = self.context['request'].user.recipes.filter(name=attrs['name']).exists()
+        no_uniq_recipe = (
+            self.context['request'].user.recipes.
+            filter(name=attrs['name']).exists()
+        )
         if self.context['request'].method == 'POST' and no_uniq_recipe:
-            raise serializers.ValidationError({'name': 'Вы уже создали такой рецепт'})
+            raise serializers.ValidationError(
+                {'name': 'Вы уже создали такой рецепт'}
+            )
         return attrs
 
     @staticmethod
@@ -269,9 +298,13 @@ class RecipesSerializer(RecipeMinifiedSerializer):
             tag_id = tag['id'].id
             tags_id.append(tag_id)
         if len(attrs) == 0:
-            raise serializers.ValidationError('Поле не может быть пустым')
-        elif len(attrs) != len(set(tags_id)):
-            raise serializers.ValidationError('Теги не могут повторяться')
+            raise serializers.ValidationError(
+                'Поле не может быть пустым'
+            )
+        if len(attrs) != len(set(tags_id)):
+            raise serializers.ValidationError(
+                'Теги не могут повторяться'
+            )
         return attrs
 
     @staticmethod
@@ -284,9 +317,13 @@ class RecipesSerializer(RecipeMinifiedSerializer):
             ingredient_id = ingredient['id'].id
             ingredients_id.append(ingredient_id)
         if len(attrs) == 0:
-            raise serializers.ValidationError('Поле не может быть пустым')
-        elif len(attrs) != len(set(ingredients_id)):
-            raise serializers.ValidationError('Ингридиенты не могут повторяться')
+            raise serializers.ValidationError(
+                'Поле не может быть пустым'
+            )
+        if len(attrs) != len(set(ingredients_id)):
+            raise serializers.ValidationError(
+                'Ингридиенты не могут повторяться'
+            )
         return attrs
 
     def get_is_favorited(self, obj):
@@ -296,8 +333,7 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         """
         user = self.context['request'].user
         if user.is_authenticated:
-            is_favorited = user.favoriterecipes_set.filter(recipe=obj).exists()
-            return is_favorited
+            return user.favoriterecipes_set.filter(recipe=obj).exists()
         return False
 
     def get_is_in_shopping_cart(self, obj):
@@ -307,8 +343,7 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         """
         user = self.context['request'].user
         if user.is_authenticated:
-            in_shopping_cart = user.shoppingcart_set.filter(recipe=obj).exists()
-            return in_shopping_cart
+            return user.shoppingcart_set.filter(recipe=obj).exists()
         return False
 
 
@@ -318,23 +353,47 @@ class SubscriptionsSerializer(SignUpSerializer):
     SignUpSerializer в выдачу добавлены связанные с
     автором рецепты и их общее количество.
     """
-    recipes = serializers.SerializerMethodField('paginate_recipes', read_only=True)
-    recipes_count = serializers.IntegerField(read_only=True)
+    recipes = serializers.SerializerMethodField(
+        'paginate_recipes', read_only=True
+    )
+    recipes_count = serializers.IntegerField(
+        read_only=True
+    )
 
     class Meta:
         model = User
-        read_only_fields = ('email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'recipes', 'recipes_count')
+        read_only_fields = (
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'is_subscribed',
+            'recipes',
+            'recipes_count'
+        )
         fields = (
-            'email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'recipes', 'recipes_count')
+            'email',
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'is_subscribed',
+            'recipes',
+            'recipes_count'
+        )
 
     def paginate_recipes(self, obj):
         """
         Функция добавляет поджинацию при ответе на запрос.
         """
         recipe = obj.recipes.all()
-        paginator = paginations.CustomLimitOffsetPagination()
-        paginator.limit_query_param = 'recipes_limit'
-        paginator.offset_query_param = None
+        paginator = paginations.CustomPageNumberPagination()
+        paginator.page_size_query_param = 'recipes_limit'
+        paginator.page_size = 3
         page = paginator.paginate_queryset(recipe, self.context['request'])
-        serializer = RecipeMinifiedSerializer(page, many=True, context={'request': self.context['request']})
+        serializer = RecipeMinifiedSerializer(
+            page,
+            many=True,
+            context={'request': self.context['request']})
         return serializer.data

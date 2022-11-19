@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.db.models import UniqueConstraint, CheckConstraint, Q
+from django.db.models import UniqueConstraint
 
 ADMIN = 'admin'
 USER = 'user'
@@ -63,7 +63,7 @@ class User(AbstractUser):
                 fields=['username', 'email'],
                 name='unique_user')
         ]
-        ordering = ('id',)
+        ordering = ('username',)
         verbose_name = 'Пользователя'
         verbose_name_plural = 'Пользователи'
 
@@ -98,11 +98,13 @@ class Subscriptions(models.Model):
                 name='unique_subscribe',
             )
         ]
+        ordering = ('author',)
         verbose_name = 'Подписку'
         verbose_name_plural = 'Подписки'
 
     def __str__(self):
-        return f'Пользователь {self.user.username} подписан на {self.author.username}.'
+        return (f'Пользователь {self.user.username} '
+                f'подписан на {self.author.username}.')
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -113,5 +115,4 @@ class Subscriptions(models.Model):
         from django.core.exceptions import ValidationError
         if self.author == self.user:
             raise ValidationError('Нельзя подписаться на самого себя')
-        else:
-            super().save(*args, **kwargs)
+        super().save(*args, **kwargs)

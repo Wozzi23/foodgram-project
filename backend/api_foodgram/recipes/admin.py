@@ -1,7 +1,11 @@
 from django.contrib import admin
 from django.db.models import Count
 
-from recipes.models import Ingredients, Tags, IngredientInRecipe, Recipes, FavoriteRecipes
+from recipes.models import (FavoriteRecipes,
+                            IngredientInRecipe,
+                            Ingredients,
+                            Recipes,
+                            Tags)
 
 
 @admin.register(Ingredients)
@@ -49,11 +53,18 @@ class RecipesAdmin(admin.ModelAdmin):
     )
     inlines = (IngredientInRecipeInline,)
     filter_horizontal = ('tags',)
-    list_filter = ['name', 'author__username', 'tags__name', ]
+    list_filter = [
+        'name',
+        'author__username',
+        'tags__name',
+    ]
 
     def is_favorite(self, obj):
         print(obj)
-        result = FavoriteRecipes.objects.filter(recipe=obj).aggregate(is_favorite=Count('recipe'))
+        result = (
+            FavoriteRecipes.objects.
+            filter(recipe=obj).
+            aggregate(is_favorite=Count('recipe')))
         return result["is_favorite"]
 
 

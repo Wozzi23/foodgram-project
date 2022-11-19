@@ -1,12 +1,33 @@
-import io
+from api.filters import RecipesFilters
+from api.paginations import CustomPageNumberPagination
+from api.permissions import ReadAnyOrAuthorOnly
+from api.serializers import (IngredientsSerializer,
+                             RecipeMinifiedSerializer,
+                             RecipesSerializer,
+                             SubscriptionsSerializer,
+                             TagsSerializer)
+
+from api_foodgram.settings import STATIC_ROOT
 
 from django.db.models import Count
-from django.http import FileResponse
+from django.http import HttpResponse
+
 from django_filters.rest_framework import DjangoFilterBackend
+
 from djoser.views import UserViewSet
+
+from recipes.models import (FavoriteRecipes,
+                            IngredientInRecipe,
+                            Ingredients,
+                            Recipes,
+                            ShoppingCart,
+                            Tags)
+
 from reportlab.pdfbase import pdfmetrics, ttfonts
 from reportlab.pdfgen import canvas
-from rest_framework import viewsets, filters, status
+
+
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
@@ -14,12 +35,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.filters import RecipesFilters
-from api.paginations import CustomLimitOffsetPagination
-from api.permissions import ReadAnyOrAuthorOnly
-from api.serializers import IngredientsSerializer, TagsSerializer, RecipesSerializer, RecipeMinifiedSerializer, \
-    SubscriptionsSerializer
-from recipes.models import Ingredients, Tags, Recipes, FavoriteRecipes, ShoppingCart, IngredientInRecipe
 from users.models import User
 
 
@@ -32,7 +47,7 @@ class BaseUserViewSet(UserViewSet):
     методов при расширении функционала не заыть добавить
     методы в разрешенные.
     """
-    pagination_class = CustomLimitOffsetPagination
+    pagination_class = CustomPageNumberPagination
     http_method_names = ['get', 'post', 'head', 'options', 'trace']
 
     def reset_username_confirm(self, request, *args, **kwargs):
@@ -67,9 +82,10 @@ class BaseUserViewSet(UserViewSet):
         Функция обработки GET запроса subscriptions
         """
         subscriptions = (
-            User.objects.filter(subscribe_author__user=self.request.user).
+            User.objects.filter(
+                subscribe_author__user=self.request.user).
             prefetch_related('recipes').
-            annotate(recipes_count=Count('recipes'))
+            annotate(recipes_count=Count('recipes')).order_by('id')
         )
         page = self.paginate_queryset(subscriptions)
         serializer = SubscriptionsSerializer(
@@ -91,18 +107,32 @@ class SubscribeAPI(APIView):
     def post(self, request, id):
         user = self.request.user
         if user.pk == id:
-            raise ValidationError({'errors': 'Нельзя подписаться на самого себя'})
-        author = get_object_or_404(User.objects.prefetch_related('recipes').annotate(recipes_count=Count('recipes')),
-                                   id=id)
-        is_subscribed = user.subscribe_user.filter(author=author).exists()
+            raise ValidationError(
+                {'errors': 'Нельзя подписаться на самого себя'}
+            )
+        author = get_object_or_404(
+            User.objects.prefetch_related('recipes').
+            annotate(
+                recipes_count=Count('recipes')).
+            order_by('id'),
+            id=id)
+        is_subscribed = (
+            user.subscribe_user.filter(
+                author=author).
+            exists())
         if is_subscribed:
-            return Response({'errors': 'Вы уже подписаны на данного автора'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            user.subscribe_user.create(author=author)
-            serializer = SubscriptionsSerializer(author,
-                                                 context={'request': self.request}, )
-            return Response(serializer.data,
-                            status=status.HTTP_201_CREATED)
+            return Response(
+                {'errors': 'Вы уже подписаны на данного автора'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        user.subscribe_user.create(author=author)
+        serializer = (
+            SubscriptionsSerializer(
+                author,
+                context={'request': self.request}, )
+        )
+        return Response(serializer.data,
+                        status=status.HTTP_201_CREATED)
 
     def delete(self, request, id):
         author = get_object_or_404(User, id=id)
@@ -111,8 +141,10 @@ class SubscribeAPI(APIView):
         if is_subscribed.exists():
             is_subscribed.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'errors': 'Вы не подписанны на этого автора'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'errors': 'Вы не подписанны на этого автора'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
@@ -149,18 +181,29 @@ def favorite_recipe2(self, request, pk, model):
     recipe = get_object_or_404(Recipes, id=pk)
     user = self.request.user
     if request.method == 'POST':
-        favorite_recipes, create = model.objects.get_or_create(user=user, recipe=recipe)
+        favorite_recipes, create = (
+            model.objects.get_or_create(
+                user=user,
+                recipe=recipe
+            )
+        )
         if create:
-            return Response(RecipeMinifiedSerializer(recipe).data, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'errors': 'Рецепт уже добален'}, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        favorite_recipes = model.objects.filter(user=user, recipe=recipe)
-        if favorite_recipes.exists():
-            favorite_recipes.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'errors': 'Рецепт не был добален'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                RecipeMinifiedSerializer(recipe).data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(
+            {'errors': 'Рецепт уже добален'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    favorite_recipes = model.objects.filter(user=user, recipe=recipe)
+    if favorite_recipes.exists():
+        favorite_recipes.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    return Response(
+        {'errors': 'Рецепт не был добален'},
+        status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 class RecipesViewSet(viewsets.ModelViewSet):
@@ -170,11 +213,19 @@ class RecipesViewSet(viewsets.ModelViewSet):
     """
     queryset = Recipes.objects.all()
     serializer_class = RecipesSerializer
-    pagination_class = CustomLimitOffsetPagination
+    pagination_class = CustomPageNumberPagination
     permission_classes = (ReadAnyOrAuthorOnly,)
     filter_backends = [DjangoFilterBackend, ]
     filterset_class = RecipesFilters
-    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options', 'trace']
+    http_method_names = [
+        'get',
+        'post',
+        'patch',
+        'delete',
+        'head',
+        'options',
+        'trace'
+    ]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -215,17 +266,34 @@ class RecipesViewSet(viewsets.ModelViewSet):
         на совпаление ингридиентов и в случае совпадения суммирует поле
         amount.
         """
-        ing = IngredientInRecipe.objects.filter(recipe__shoppingcart__user=self.request.user)
+        ing = (
+            IngredientInRecipe.objects.filter(
+                recipe__shoppingcart__user=self.request.user
+            )
+        )
+        if not ing.exists():
+            raise ValidationError(
+                {'errors': 'У вас нет рецептов с списке покупок'}
+            )
         res = {}
         for i in ing:
             value = res.get(i.ingredient.name)
             if value is not None:
                 value[1] += i.amount
             else:
-                res.update({i.ingredient.name: [i.ingredient.measurement_unit, i.amount]})
-        buffer = io.BytesIO()
-        p = canvas.Canvas(buffer)
-        my_font_object = ttfonts.TTFont('Arial', 'arial.ttf')
+                res.update(
+                    {
+                        i.ingredient.name:
+                            [i.ingredient.measurement_unit, i.amount]
+                    }
+                )
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="file.pdf"'
+
+        p = canvas.Canvas(response)
+        my_font_object = ttfonts.TTFont(
+            'Arial', f'{STATIC_ROOT}/fonts/arial.ttf'
+        )
         pdfmetrics.registerFont(my_font_object)
         p.setFont('Arial', 24)
         p.drawString(100, 700, 'Список покупок:')
@@ -238,5 +306,4 @@ class RecipesViewSet(viewsets.ModelViewSet):
             num += 1
         p.showPage()
         p.save()
-        buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename='hello.pdf')
+        return response
