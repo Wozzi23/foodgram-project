@@ -71,7 +71,6 @@ class RecipesAdmin(admin.ModelAdmin):
     ]
 
     def is_favorite(self, obj):
-        print(obj)
         result = (
             FavoriteRecipes.objects.
             filter(recipe=obj).
