@@ -99,6 +99,9 @@ docker-compose exec backend python manage.py collectstatic --noinput
 Сайт доступен по ссылке:
 [http://158.160.40.69](http://158.160.40.69/)
 
+* Логин администратора Wozi56
+* Пароль vfrc48156
+
 ## Документация к API
 API документация доступна по ссылке (создана с помощью redoc):
 [http://158.160.40.69/api/docs/](http://158.160.40.69/api/docs/)
