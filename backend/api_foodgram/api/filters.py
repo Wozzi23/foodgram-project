@@ -23,6 +23,12 @@ class RecipesFilters(django_filters.rest_framework.FilterSet):
         method='filter_is_in_shopping_cart', label='В корзине'
     )
 
+    def __boolean_filter(self, queryset, key):
+        filter_for_user = {
+            f'{key}__user': self.request.user
+        }
+        return queryset.filter(filter_for_user)
+
     def filter_is_favorited(self, queryset, name, value):
         """
         Метод фильтрации по связанному полю модели Recipes с
@@ -31,7 +37,7 @@ class RecipesFilters(django_filters.rest_framework.FilterSet):
         требуется авторизация.
         """
         if value and self.request.user.is_authenticated:
-            return queryset.filter(favoriterecipes__user=self.request.user)
+            return self.__boolean_filter(queryset, 'favoriterecipes')
         return queryset
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
@@ -42,7 +48,7 @@ class RecipesFilters(django_filters.rest_framework.FilterSet):
         требуется авторизация.
         """
         if value and self.request.user.is_authenticated:
-            return queryset.filter(shoppingcart__user=self.request.user)
+            return self.__boolean_filter(queryset, 'shoppingcart')
         return queryset
 
     class Meta:

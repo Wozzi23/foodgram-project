@@ -26,7 +26,6 @@ from recipes.models import (FavoriteRecipes,
 from reportlab.pdfbase import pdfmetrics, ttfonts
 from reportlab.pdfgen import canvas
 
-
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -50,6 +49,12 @@ class BaseUserViewSet(UserViewSet):
     pagination_class = CustomPageNumberPagination
     http_method_names = ['get', 'post', 'head', 'options', 'trace']
 
+    """Добавив данным методам pass мы убрали из выдачи ненужные на
+    данном этапе роуты но сохранив стандартные возможности джозера
+    удалив метод он сразу появится и можно настроить его в
+    соответствии с требованиями проекта, это сохраняет возможность
+    расширения функционала минимальными усилиями.
+    """
     def reset_username_confirm(self, request, *args, **kwargs):
         pass
 
@@ -172,7 +177,7 @@ class TagsViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
 
-def favorite_recipe2(self, request, pk, model):
+def post_delete_method(self, request, pk, model):
     """
     Базовая функция для favorite и shopping_cart,
     так как методы схожи реализована одна функция для 2 запросов
@@ -240,7 +245,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
         """
         Функция добавления/удаления рецепта из избранного.
         """
-        return favorite_recipe2(self, request, pk, FavoriteRecipes)
+        return post_delete_method(self, request, pk, FavoriteRecipes)
 
     @action(
         methods=['POST', 'DELETE'],
@@ -252,7 +257,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
         """
         Функция добавления/удаления рецепта из списка покупок.
         """
-        return favorite_recipe2(self, request, pk, ShoppingCart)
+        return post_delete_method(self, request, pk, ShoppingCart)
 
     @action(
         methods=['GET'],

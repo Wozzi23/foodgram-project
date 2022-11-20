@@ -3,6 +3,7 @@ import base64
 from api import paginations
 
 from django.core.files.base import ContentFile
+from django.db import transaction
 
 from recipes.models import (IngredientInRecipe,
                             Ingredients,
@@ -239,6 +240,23 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         )
         return res
 
+    @staticmethod
+    def __create_or_update_obj(recipe, tags, ingredients):
+        for tag in tags:
+            recipe.tags.add(tag['id'])
+        ingredients_in_recipe = []
+        for ingredient in ingredients:
+            ingredients_in_recipe.append(
+                IngredientInRecipe(
+                    ingredient=ingredient['id'],
+                    recipe=recipe,
+                    amount=ingredient['amount']
+                )
+            )
+        recipe.recipe_ingredients.bulk_create(ingredients_in_recipe)
+        return recipe
+
+    @transaction.atomic
     def create(self, validated_data):
         """
         Функция обработки POST запроса
@@ -246,15 +264,9 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
         recipe = super().create(validated_data)
-        for tag in tags:
-            recipe.tags.add(tag['id'])
-        for ingredient in ingredients:
-            recipe.recipe_ingredients.create(
-                ingredient=ingredient['id'],
-                amount=ingredient['amount']
-            )
-        return recipe
+        return self.__create_or_update_obj(recipe, tags, ingredients)
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """
         Функция обработки PATCH запроса
@@ -264,14 +276,7 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         instance.tags.clear()
         instance.ingredients.clear()
         recipe = super().update(instance, validated_data)
-        for tag in tags:
-            recipe.tags.add(tag['id'])
-        for ingredient in ingredients:
-            recipe.recipe_ingredients.create(
-                ingredient=ingredient['id'],
-                amount=ingredient['amount']
-            )
-        return instance
+        return self.__create_or_update_obj(recipe, tags, ingredients)
 
     def validate(self, attrs):
         """
