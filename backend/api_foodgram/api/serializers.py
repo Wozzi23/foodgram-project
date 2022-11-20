@@ -253,7 +253,7 @@ class RecipesSerializer(RecipeMinifiedSerializer):
                     amount=ingredient['amount']
                 )
             )
-        recipe.recipe_ingredients.bulk_create(ingredients_in_recipe)
+        IngredientInRecipe.objects.bulk_create(ingredients_in_recipe)
         return recipe
 
     @transaction.atomic
