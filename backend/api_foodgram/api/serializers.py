@@ -304,11 +304,11 @@ class RecipesSerializer(RecipeMinifiedSerializer):
             tags_id.append(tag_id)
         if len(attrs) == 0:
             raise serializers.ValidationError(
-                'Поле не может быть пустым'
+                {'errors': 'Поле не может быть пустым'}
             )
         if len(attrs) != len(set(tags_id)):
             raise serializers.ValidationError(
-                'Теги не могут повторяться'
+                {'errors': 'Теги не могут повторяться'}
             )
         return attrs
 
@@ -323,11 +323,11 @@ class RecipesSerializer(RecipeMinifiedSerializer):
             ingredients_id.append(ingredient_id)
         if len(attrs) == 0:
             raise serializers.ValidationError(
-                'Поле не может быть пустым'
+                {'errors': 'Поле не может быть пустым'}
             )
         if len(attrs) != len(set(ingredients_id)):
             raise serializers.ValidationError(
-                'Ингридиенты не могут повторяться'
+                {'errors': 'Ингридиенты не могут повторяться'}
             )
         return attrs
 
