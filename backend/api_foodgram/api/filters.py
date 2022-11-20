@@ -27,7 +27,7 @@ class RecipesFilters(django_filters.rest_framework.FilterSet):
         filter_for_user = {
             f'{key}__user': self.request.user
         }
-        return queryset.filter(filter_for_user)
+        return queryset.filter(**filter_for_user)
 
     def filter_is_favorited(self, queryset, name, value):
         """
