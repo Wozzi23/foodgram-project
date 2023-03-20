@@ -1,10 +1,10 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
 
 from .models import Subscriptions, User
 
 
-@admin.register(User)
-class UserAdmin(admin.ModelAdmin):
+class AdminUser(admin.ModelAdmin):
     """Класс, формирующий админ-панель сайта, раздел: пользователи."""
     list_display = (
         'username', 'email', 'first_name',
@@ -22,3 +22,6 @@ class SubscriptionsAdmin(admin.ModelAdmin):
         'author', 'user',
     )
     empty_value_display = '--пустое поле--'
+
+
+admin.site.register(User, UserAdmin)

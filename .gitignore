@@ -131,3 +131,5 @@ dmypy.json
 # .idea
 .idea
 !/infra/.env
+!/backend/api_foodgram/media/
+!/backend/api_foodgram/static/

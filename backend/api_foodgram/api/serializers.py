@@ -2,13 +2,12 @@ import base64
 
 from api import paginations
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db import transaction
 
-from recipes.models import (IngredientInRecipe,
-                            Ingredients,
-                            Recipes,
-                            Tags)
+from recipes.models import IngredientInRecipe, Ingredients, Recipes, Tags
 
 from rest_framework import serializers
 
@@ -17,10 +16,29 @@ from users.models import User
 
 class SignUpSerializer(serializers.ModelSerializer):
     """
-    Сериализатор модели User. Поле is_subscribed вычисляется
-    вхождения в модель Subscriptions пользователя сделавшего запрос
-    и автора рецепта.
+    Класс сериализации модели User.
+
+    ...
+
+    Атрибуты
+    --------
+    is_subscribed: bool
+        подписка на автора
+
+    Методы
+    ------
+    get_is_subscribed(obj):
+        Проверяет наличие связки пользователя сделавшего запрос
+        и автора в модели Subscriptions
+
+    to_representation(instance):
+        Убирает из POST запроса на адрес /api/users/
+        поле is_subscribed для соответсвия ответа техзаданию.
+
+    create(validated_data):
+        Создает обьект модели User из проверенных данных.
     """
+
     is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
@@ -44,8 +62,17 @@ class SignUpSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj) -> bool:
         """
-        Функция обработки поля is_subscribed на основе
-        связи пользователя и автора через модель Subscriptions.
+        Проверяет наличие связки пользователя сделавшего запрос
+        и автора в модели Subscriptions
+
+        Параметры
+        ---------
+        obj: int
+            id автора
+
+        Возвращаемое значение
+        ---------------------
+        Bool
         """
         user = self.context['request'].user
         if user.is_authenticated:
@@ -55,8 +82,17 @@ class SignUpSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """
-        Функция убирает из POST запроса на адрес /api/users/
+        Убирает из POST запроса на адрес /api/users/
         поле is_subscribed для соответсвия ответа техзаданию.
+
+        Параметры
+        ---------
+        instance: dict
+            словарь ответов на запрос
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         res = super().to_representation(instance)
         if (self.context['request'].method == 'POST'
@@ -66,7 +102,16 @@ class SignUpSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """
-        Метод обработки POST запроса длч создания модели User.
+        Создает обьект модели User из проверенных данных.
+
+        Параметры
+        ---------
+        validated_data: dict
+            Словарь значений для модели User
+
+        Возвращаемое значение
+        ---------------------
+        Queryset[User]
         """
         user = User.objects.create(
             username=validated_data['username'],
@@ -81,7 +126,7 @@ class SignUpSerializer(serializers.ModelSerializer):
 
 class IngredientsSerializer(serializers.ModelSerializer):
     """
-    Сериализатор модели Ingredients.
+    Класс сериализации модели Ingredients.
     """
 
     class Meta:
@@ -92,12 +137,29 @@ class IngredientsSerializer(serializers.ModelSerializer):
 
 class IngredientRecipeRepresentationSerializer(IngredientsSerializer):
     """
-    Сериализатор модели Ingredients в выдачу добавлено поле
-    amount для реализации количества ингридиента в конкретном
-    рецепте
+    Класс сериализации модели Ingredients.
+
+    ...
+
+    Методы
+    ------
+    to_representation(instance):
+        Добавляет поле amount в конкретном рецепте.
     """
 
     def to_representation(self, instance):
+        """
+        Добавляет поле amount в конкретном рецепте.
+
+        Параметры
+        ---------
+        instance: dict
+            словарь значений из запроса
+
+        Возвращаемое значение
+        ---------------------
+        dict
+        """
         return {
             'id': instance.ingredient.id,
             'name': instance.ingredient.name,
@@ -108,13 +170,19 @@ class IngredientRecipeRepresentationSerializer(IngredientsSerializer):
 
 class IngredientsInRecipeSerializer(serializers.ModelSerializer):
     """
-    Сериализатор связующей модели между Recipes и Ingredients.
+    Класс сериализации модели связующий модели между Recipes и Ingredients.
     Добавляет поле amount для рецепта.
+
+    ...
+
+    Атрибуты
+    --------
+    id: int
+        номер ингридиента в базе
     """
     id = serializers.PrimaryKeyRelatedField(
         queryset=Ingredients.objects.all(),
         error_messages={'does_not_exist': 'Ингридиента нет в базе'})
-    amount = serializers.IntegerField(min_value=1)
 
     class Meta:
         model = IngredientInRecipe
@@ -123,7 +191,19 @@ class IngredientsInRecipeSerializer(serializers.ModelSerializer):
 
 class TagsSerializer(serializers.ModelSerializer):
     """
-    Сериализатор модели Tags.
+    Класс сериализации модели Tags.
+
+    ...
+
+    Атрибуты
+    --------
+    id: int
+        номер тега в базе
+
+    Методы
+    ------
+    to_internal_value(data):
+        Пересобирает ответ убирая вложенность значений.
     """
     id = serializers.PrimaryKeyRelatedField(
         queryset=Tags.objects.all(),
@@ -136,9 +216,16 @@ class TagsSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         """
-        Для POST запросов через модель рецепта через поле id
-        приводим выдачу к валидным значениям для избежания
-        ошибок и не писать второй сериализатор для модели.
+        Пересобирает ответ убирая вложенность значений.
+
+        Параметры
+        ---------
+        data: dict
+            словарь значений из запроса
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         tag = {'id': data}
         return super().to_internal_value(tag)
@@ -159,21 +246,23 @@ class Base64ImageField(serializers.ImageField):
 
 class RecipeMinifiedSerializer(serializers.ModelSerializer):
     """
-    Сериализатор модели Recipes. Изпользуется для вложенных полей
-    других сериализаторов, является родительским к RecipesSerializer
+    Класс сериализации модели Recipes. Иcпользуется для вложенных полей
+    других сериализаторов.
+
+    ...
+
+    Атрибуты
+    --------
+    name: str
+        название рецепта
+    image: dict
+        картинка зашифрованная в формат base64
     """
     name = serializers.CharField(
         min_length=2,
         max_length=200
     )
     image = Base64ImageField()
-    cooking_time = serializers.IntegerField(
-        min_value=1,
-        max_value=1440,
-        error_messages={
-            'max_value': 'Не стоит готовть сутками'
-        }
-    )
 
     class Meta:
         model = Recipes
@@ -193,9 +282,50 @@ class RecipeMinifiedSerializer(serializers.ModelSerializer):
 
 class RecipesSerializer(RecipeMinifiedSerializer):
     """
-    Сериализатор модели Recipes. Часть полей наследуется от
+    Класс сериализации модели Recipes. Наследуется от
     модели RecipeMinifiedSerializer и новыми полями расширяем
-    модель для соответсвия выдачи ожиданиям.
+    модель.
+
+    ...
+
+    Атрибуты
+    --------
+    tags: list
+        теги
+    ingredients: list
+        ингридиенты
+    text: str
+        описание рецепта
+    is_favorited: bool
+        нахождение в избранном у пользователя
+    is_in_shopping_cart: bool
+        нахождение в корзине у пользователя
+    author: dict
+        автор рецепта
+
+    Методы
+    ------
+    to_representation(instance):
+        Меняет сериализатор для выдачи. Добавляя расширенные данные
+        по полю ingredients.
+    __create_or_update_obj(recipe, tags, ingredients):
+        Функция для корректного обновления или создания рецепта
+    create(validated_data):
+        Функция создания рецепта
+    update(instance, validated_data):
+        Функция обработки PATCH запроса
+    validate(attrs):
+        Валидация уникальности имени рецепта и автора
+    validate_tags(attrs):
+        Валидации поля tags
+    validate_ingredients(attrs):
+        Валидации поля ingredients
+    get_is_favorited(obj):
+        Функция обработки поля is_favorited на основе
+        связи пользователя и рецепта через модель FavoriteRecipes.
+    get_is_in_shopping_cart(obj):
+        Функция обработки поля is_in_shopping_cart на основе
+        связи пользователя и рецепта через модель ShoppingCart.
     """
     tags = TagsSerializer(many=True)
     ingredients = IngredientsInRecipeSerializer(
@@ -232,6 +362,14 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         """
         Меняет сериализатор для выдачи. добавляя расширенные данные
         по полю ingredients.
+
+        Параметры
+        ---------
+        instance: dict
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         res = super().to_representation(instance)
         res['ingredients'] = (
@@ -242,6 +380,22 @@ class RecipesSerializer(RecipeMinifiedSerializer):
 
     @staticmethod
     def __create_or_update_obj(recipe, tags, ingredients):
+        """
+        Функция для корректного обновления или создания рецепта
+
+        Параметры
+        ---------
+        recipe: Queryset[Recipe]
+            обьект модели Recipe
+        tags: list
+            список тегов
+        ingredients: list
+            список ингридиентов
+
+        Возвращаемое значение
+        ---------------------
+        Queryset[Recipe]
+        """
         for tag in tags:
             recipe.tags.add(tag['id'])
         ingredients_in_recipe = []
@@ -259,7 +413,15 @@ class RecipesSerializer(RecipeMinifiedSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """
-        Функция обработки POST запроса
+        Функция создания рецепта.
+
+        Параметры
+        ---------
+        validated_data: dict
+
+        Возвращаемое значение
+        ---------------------
+        Queryset[Recipe]
         """
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
@@ -270,6 +432,17 @@ class RecipesSerializer(RecipeMinifiedSerializer):
     def update(self, instance, validated_data):
         """
         Функция обработки PATCH запроса
+
+        Параметры
+        ---------
+        instance: Queryset[Recipe]
+            рецепт
+        validated_data: dict
+            обновленные данные
+
+        Возвращаемое значение
+        ---------------------
+        Queryset[Recipe]
         """
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
@@ -280,8 +453,16 @@ class RecipesSerializer(RecipeMinifiedSerializer):
 
     def validate(self, attrs):
         """
-        Валидация уникальности имени рецепта и автора для исключения
-        попадания нескольких одинаковых рецептов в модели.
+        Валидация уникальности имени рецепта и автора
+
+        Параметры
+        ---------
+        attrs: dict
+            атрибуты запроса
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         no_uniq_recipe = (
             self.context['request'].user.recipes.
@@ -297,6 +478,15 @@ class RecipesSerializer(RecipeMinifiedSerializer):
     def validate_tags(attrs):
         """
         Функция валидации поля tags
+
+        Параметры
+        ---------
+        attrs: dict
+            атрибуты запроса
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         tags_id = []
         for tag in attrs:
@@ -316,6 +506,15 @@ class RecipesSerializer(RecipeMinifiedSerializer):
     def validate_ingredients(attrs):
         """
         Функция валидации поля ingredients
+
+        Параметры
+        ---------
+        attrs: dict
+            атрибуты запроса
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         ingredients_id = []
         for ingredient in attrs:
@@ -335,6 +534,14 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         """
         Функция обработки поля is_favorited на основе
         связи пользователя и рецепта через модель FavoriteRecipes.
+
+        Параметры
+        ---------
+        obj: int
+
+        Возвращаемое значение
+        ---------------------
+        bool
         """
         user = self.context['request'].user
         if user.is_authenticated:
@@ -345,6 +552,14 @@ class RecipesSerializer(RecipeMinifiedSerializer):
         """
         Функция обработки поля is_in_shopping_cart на основе
         связи пользователя и рецепта через модель ShoppingCart.
+
+        Параметры
+        ---------
+        obj: int
+
+        Возвращаемое значение
+        ---------------------
+        bool
         """
         user = self.context['request'].user
         if user.is_authenticated:
@@ -354,9 +569,22 @@ class RecipesSerializer(RecipeMinifiedSerializer):
 
 class SubscriptionsSerializer(SignUpSerializer):
     """
-    Класс сериализации модели подписки ролительский класс
-    SignUpSerializer в выдачу добавлены связанные с
-    автором рецепты и их общее количество.
+    Класс сериализации модели подписки, ролительский класс
+    SignUpSerializer.
+
+    ...
+
+    Атрибуты
+    --------
+    recipes: list
+        Список рецептов автора
+    recipes_count: int
+        Количество рецептов у автора
+
+    Методы
+    ------
+    paginate_recipes(obj):
+        Добавляет поджинацию при ответе на запрос.
     """
     recipes = serializers.SerializerMethodField(
         'paginate_recipes', read_only=True
@@ -390,7 +618,17 @@ class SubscriptionsSerializer(SignUpSerializer):
 
     def paginate_recipes(self, obj):
         """
-        Функция добавляет поджинацию при ответе на запрос.
+        Добавляет поджинацию при ответе на запрос.
+
+        Параметры
+        ---------
+        obj: Queryset[User]
+            автор
+
+        Возвращаемое значение
+        ---------------------
+        dict
+
         """
         recipe = obj.recipes.all()
         paginator = paginations.CustomPageNumberPagination()
@@ -402,3 +640,78 @@ class SubscriptionsSerializer(SignUpSerializer):
             many=True,
             context={'request': self.context['request']})
         return serializer.data
+
+
+class SetPasswordSerializer(serializers.Serializer):
+    """
+    Класс сериализации запроса на смену пароля
+
+    ...
+
+    Атрибуты
+    --------
+    current_passwor: str
+        Старый пароль
+    new_password: str
+        Новый пароль
+
+    Методы
+    ------
+    validate(obj):
+        Проверка ноого пароля на корректность.
+    update(instance, validated_data):
+        Обновление пароля
+
+
+    """
+    current_password = serializers.CharField()
+    new_password = serializers.CharField()
+
+    def validate(self, obj):
+        """
+        Проверка ноого пароля на корректность.
+
+        Параметры
+        ---------
+        obj: dict
+
+        Возвращаемое значение
+        ---------------------
+        dict
+        """
+        try:
+            validate_password(obj['new_password'])
+        except ValidationError as error:
+            raise serializers.ValidationError(
+                {'new_password': list(error.messages)}
+            )
+        return super().validate(obj)
+
+    def update(self, instance, validated_data):
+        """
+        Обновление пароля
+
+        Параметры
+        ---------
+        instance: Queryset[User]
+            обьект модели User
+        validated_data: dict
+            проверенный пароль
+
+        Возвращаемое значение
+        ---------------------
+        dict
+
+        """
+        if not instance.check_password(validated_data['current_password']):
+            raise serializers.ValidationError(
+                {'current_password': 'Неправильный пароль.'}
+            )
+        if (validated_data['current_password']
+                == validated_data['new_password']):
+            raise serializers.ValidationError(
+                {'new_password': 'Новый пароль должен отличаться от текущего.'}
+            )
+        instance.set_password(validated_data['new_password'])
+        instance.save()
+        return validated_data

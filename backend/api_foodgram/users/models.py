@@ -13,8 +13,22 @@ LIST_OF_ROLES = [
 
 class User(AbstractUser):
     """
-    Модель для управления пользователями. Модель расширена
-    ролью (админ, пользователь).
+    Модель для управления пользователями.
+
+    ...
+
+    Атрибуты
+    --------
+    email: str
+        Адрес электронной почты
+    username: str
+        Логин
+    first_name: str
+        Имя
+    last_name: str
+        Фамилия
+    permissions: str
+        Роль
     """
     email = models.EmailField(
         max_length=254,
@@ -74,9 +88,16 @@ class User(AbstractUser):
 class Subscriptions(models.Model):
     """
     Модель подписки пользователя на авторов.
-    Уникальность связки author и user.
-    Добавлена проверка на запрет подписки на
-    самого себя.
+
+    ...
+
+    Атрибуты
+    --------
+    author: int
+        Автор рецептов
+    user: int
+        Подписчик
+
     """
     author = models.ForeignKey(
         User,

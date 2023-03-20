@@ -1,10 +1,9 @@
 from api.filters import RecipesFilters
 from api.paginations import CustomPageNumberPagination
 from api.permissions import ReadAnyOrAuthorOnly
-from api.serializers import (IngredientsSerializer,
-                             RecipeMinifiedSerializer,
-                             RecipesSerializer,
-                             SubscriptionsSerializer,
+from api.serializers import (IngredientsSerializer, RecipeMinifiedSerializer,
+                             RecipesSerializer, SetPasswordSerializer,
+                             SignUpSerializer, SubscriptionsSerializer,
                              TagsSerializer)
 
 from api_foodgram.settings import STATIC_ROOT
@@ -14,67 +13,111 @@ from django.http import HttpResponse
 
 from django_filters.rest_framework import DjangoFilterBackend
 
-from djoser.views import UserViewSet
-
-from recipes.models import (FavoriteRecipes,
-                            IngredientInRecipe,
-                            Ingredients,
-                            Recipes,
-                            ShoppingCart,
-                            Tags)
+from recipes.models import (FavoriteRecipes, IngredientInRecipe, Ingredients,
+                            Recipes, ShoppingCart, Tags)
 
 from reportlab.pdfbase import pdfmetrics, ttfonts
 from reportlab.pdfgen import canvas
 
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework.viewsets import GenericViewSet
 
 from users.models import User
 
 
-class BaseUserViewSet(UserViewSet):
+class BaseUserViewSet(mixins.CreateModelMixin,
+                      mixins.RetrieveModelMixin,
+                      mixins.ListModelMixin,
+                      GenericViewSet):
     """
-    Убраны едпоинты Djoser которые не используется
-    в данной версии проекта. При дальнейшей реализации
-    методы будут удаляться. В соотвествии с требованиями
-    проекта методы delete, pach, put убраны из разрешенных
-    методов при расширении функционала не заыть добавить
-    методы в разрешенные.
+    Класс обрабатывает запросы по маршруту users
+
+    ...
+
+    Методы
+    ------
+    get_permissions():
+        Устанавливает ограничения на запросы для неавторизованных пользователей
+    set_password(request):
+        Обрабатывает запросы по маршруту users/set_password/
+    me(self, request):
+        Обрабатывает запросы по маршруту users/me/
+    subscriptions_list(request):
+        Обрабатывает запросы по маршруту users/subscriptions/
+    def subscribe(request, **kwargs):
+        Обрабатывает запросы по маршруту users/{id}/subscribe/
     """
+
     pagination_class = CustomPageNumberPagination
-    http_method_names = ['get', 'post', 'head', 'options', 'trace']
+    queryset = User.objects.all()
+    serializer_class = SignUpSerializer
 
-    """Добавив данным методам pass мы убрали из выдачи ненужные на
-    данном этапе роуты но сохранив стандартные возможности джозера
-    удалив метод он сразу появится и можно настроить его в
-    соответствии с требованиями проекта, это сохраняет возможность
-    расширения функционала минимальными усилиями.
-    """
-    def reset_username_confirm(self, request, *args, **kwargs):
-        pass
+    def get_permissions(self):
+        """
+        Устанавливает ограничения на запросы для неавторизованных пользователей
 
-    def reset_username(self, request, *args, **kwargs):
-        pass
+        Возвращаемое значение
+        ---------------------
+        bool
+        """
+        if self.action == 'list' or self.action == 'create':
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
 
-    def set_username(self, request, *args, **kwargs):
-        pass
+    @action(
+        methods=['POST'],
+        detail=False,
+        permission_classes=(IsAuthenticated,),
+        url_path='set_password',
+    )
+    def set_password(self, request):
+        """
+        Обрабатывает запросы по маршруту users/set_password/
 
-    def reset_password_confirm(self, request, *args, **kwargs):
-        pass
+        Параметры
+        ---------
+        request: dict
 
-    def reset_password(self, request, *args, **kwargs):
-        pass
+        Возвращаемое значение
+        ---------------------
+        dict
+        """
+        serializer = SetPasswordSerializer(request.user, data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def resend_activation(self, request, *args, **kwargs):
-        pass
+    @action(
+        methods=['GET'],
+        permission_classes=(IsAuthenticated,),
+        detail=False,
+    )
+    def me(self, request):
+        """
+        Обрабатывает запросы по маршруту users/me/
 
-    def activation(self, request, *args, **kwargs):
-        pass
+        Параметры
+        ---------
+        request: dict
+
+        Возвращаемое значение
+        ---------------------
+        dict
+        """
+        serializer = SignUpSerializer(
+            self.request.user,
+            context={'request': self.request},
+            read_only=True
+        )
+        return Response(serializer.data,
+                        status=status.HTTP_200_OK)
 
     @action(
         methods=['GET'],
@@ -82,9 +125,17 @@ class BaseUserViewSet(UserViewSet):
         permission_classes=(IsAuthenticated,),
         url_path='subscriptions',
     )
-    def get_subscriptions_list(self, request):
+    def subscriptions_list(self, request):
         """
-        Функция обработки GET запроса subscriptions
+        Обрабатывает запросы по маршруту users/subscriptions/
+
+        Параметры
+        ---------
+        request: dict
+
+        Возвращаемое значение
+        ---------------------
+        dict
         """
         subscriptions = (
             User.objects.filter(
@@ -101,46 +152,59 @@ class BaseUserViewSet(UserViewSet):
         serializer.is_valid()
         return self.get_paginated_response(serializer.data)
 
+    @action(
+        methods=['POST', 'DELETE'],
+        detail=True,
+        permission_classes=(IsAuthenticated,),
+        url_path='subscribe',
+    )
+    def subscribe(self, request, **kwargs):
+        """
+        Обрабатывает запросы по маршруту users/{id}/subscribe/
 
-class SubscribeAPI(APIView):
-    """
-    Класс обработки POST и DELETE запроса
-    subscribe, достпно только авторизованным пользователям.
-    """
-    permission_classes = (IsAuthenticated,)
+        Параметры
+        ---------
+        request: dict
 
-    def post(self, request, id):
+        **kwargs: dict
+            Дополнительные параметры переданные в запросе
+
+        Возвращаемое значение
+        ---------------------
+        dict
+        """
+        autor_id = int(kwargs['pk'])
         user = self.request.user
-        if user.pk == id:
-            raise ValidationError(
-                {'errors': 'Нельзя подписаться на самого себя'}
+        if request.method == 'POST':
+            if user.id == autor_id:
+                raise ValidationError(
+                    {'errors': 'Нельзя подписаться на самого себя'}
+                )
+            author = get_object_or_404(
+                User.objects.prefetch_related('recipes').
+                annotate(recipes_count=Count('recipes')).
+                order_by('id'),
+                id=autor_id
             )
-        author = get_object_or_404(
-            User.objects.prefetch_related('recipes').
-            annotate(
-                recipes_count=Count('recipes')).
-            order_by('id'),
-            id=id)
-        is_subscribed = (
-            user.subscribe_user.filter(
-                author=author).
-            exists())
-        if is_subscribed:
+            is_subscribed = (
+                user.subscribe_user.filter(author=author).exists())
+            if is_subscribed:
+                return Response(
+                    {'errors': 'Вы уже подписаны на данного автора'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.subscribe_user.create(author=author)
+            serializer = (
+                SubscriptionsSerializer(
+                    author,
+                    context={'request': self.request},
+                )
+            )
             return Response(
-                {'errors': 'Вы уже подписаны на данного автора'},
-                status=status.HTTP_400_BAD_REQUEST
+                serializer.data,
+                status=status.HTTP_201_CREATED
             )
-        user.subscribe_user.create(author=author)
-        serializer = (
-            SubscriptionsSerializer(
-                author,
-                context={'request': self.request}, )
-        )
-        return Response(serializer.data,
-                        status=status.HTTP_201_CREATED)
-
-    def delete(self, request, id):
-        author = get_object_or_404(User, id=id)
+        author = get_object_or_404(User, id=autor_id)
         user = self.request.user
         is_subscribed = user.subscribe_user.filter(author=author)
         if is_subscribed.exists():
@@ -154,9 +218,7 @@ class SubscribeAPI(APIView):
 
 class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Класс обработки GET запроса Ingredients,
-    достпно всем пользователям. Реализован поиск
-    по названию тега.
+    Класс обработки GET запроса Ingredients
     """
 
     queryset = Ingredients.objects.all()
@@ -168,8 +230,7 @@ class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
 
 class TagsViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Класс обработки GET запроса Tags,
-    достпно всем пользователям.
+    Класс обработки GET запроса Tags
     """
 
     queryset = Tags.objects.all()
@@ -179,9 +240,17 @@ class TagsViewSet(viewsets.ReadOnlyModelViewSet):
 
 def post_delete_method(self, request, pk, model):
     """
-    Базовая функция для favorite и shopping_cart,
-    так как методы схожи реализована одна функция для 2 запросов
-    для корректной обратотки необходимо передавать модель в запрос
+    Базовая функция для favorite и shopping_cart
+
+    Параметры
+    ---------
+        request: dict
+        pk: int
+        model: class
+
+    Возвращаемое значение
+    ---------------------
+    dict
     """
     recipe = get_object_or_404(Recipes, id=pk)
     user = self.request.user
@@ -213,8 +282,7 @@ def post_delete_method(self, request, pk, model):
 
 class RecipesViewSet(viewsets.ModelViewSet):
     """
-    Класс обработки выдачи рецептов. Исключен метод PUT из разрешенных
-    для соответвия техзаданию. Реализована паджинация и фильтрация полей
+    Класс обработки выдачи рецептов.
     """
     queryset = Recipes.objects.all()
     serializer_class = RecipesSerializer
@@ -267,9 +335,7 @@ class RecipesViewSet(viewsets.ModelViewSet):
     )
     def download_shopping_cart(self, request):
         """
-        Функция выдает PDF файл со списком покупок, реализована проверка
-        на совпаление ингридиентов и в случае совпадения суммирует поле
-        amount.
+        Функция выдает PDF файл со списком покупок.
         """
         ing = (
             IngredientInRecipe.objects.filter(

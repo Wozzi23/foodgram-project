@@ -1,5 +1,7 @@
 from colorfield.fields import ColorField
 
+from django.core.validators import (MaxLengthValidator, MaxValueValidator,
+                                    MinValueValidator)
 from django.db import models
 from django.db.models import UniqueConstraint
 
@@ -8,8 +10,16 @@ from users.models import User
 
 class Ingredients(models.Model):
     """
-    Модель ингридиентов. Сортировка по названию.
-    Проверка уникальности названия.
+    Модель ингридиентов.
+
+    ...
+
+    Атрибуты
+    --------
+    name: str
+        Название ингридиента
+    measurement_unit: int
+        Единица измерения
     """
     name = models.CharField(
         max_length=200,
@@ -37,15 +47,26 @@ class Ingredients(models.Model):
 
 class Tags(models.Model):
     """
-    Модель тегов. Сортировка по slug.
-    Проверка уникальности slug.
+    Модель тегов.
+
+    ...
+
+    Атрибуты
+    --------
+    name: str
+        Название тега
+    color: str
+        Цвет в HEX
+    slug: str
+        Уникальный слаг
     """
     name = models.CharField(
         max_length=200,
         verbose_name='Название тега'
     )
     color = ColorField(
-        verbose_name='Цвет в HEX'
+        verbose_name='Цвет в HEX',
+        unique=True
     )
     slug = models.SlugField(
         max_length=200,
@@ -59,8 +80,8 @@ class Tags(models.Model):
         ordering = ('slug',)
         constraints = [
             UniqueConstraint(
-                fields=['slug', ],
-                name='unique_slug'
+                fields=['name', 'color'],
+                name='unique_tag'
             ),
         ]
 
@@ -70,8 +91,28 @@ class Tags(models.Model):
 
 class Recipes(models.Model):
     """
-    Модель тегов. Сортировка по дате создания.
-    Проверка уникальности связки name и author.
+    Модель Рецептов.
+
+    ...
+
+    Атрибуты
+    --------
+    author: int
+        Автор
+    name: str
+        Название рецепта
+    text: str
+        Описание рецепта
+    cooking_time: int
+        Время приготовления (в минутах)
+    image: str
+        Ссылка на картинку на сайте
+    tags: int
+        Тег
+    pub_date: str
+        Дата публикации
+    ingredients: int
+        Ингридиента в рецепте
     """
     author = models.ForeignKey(
         User,
@@ -84,11 +125,19 @@ class Recipes(models.Model):
         verbose_name='Название рецепта'
     )
     text = models.TextField(
-        max_length=1500,
+        validators=[MaxLengthValidator(1500)],
         verbose_name='Описание рецепта'
     )
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name='Время приготовления (в минутах)',
+        validators=[
+            MaxValueValidator(100),
+            MinValueValidator(1),
+        ],
+        error_messages={
+            'max_value': 'Не стоит готовть сутками'
+        }
+
     )
     image = models.ImageField(
         verbose_name='Ссылка на картинку на сайте',
@@ -129,9 +178,17 @@ class Recipes(models.Model):
 class IngredientInRecipe(models.Model):
     """
     Модель связки ингридиентов и рецептов.
-    добавляет поле amount для конкретного
-    ингридиента в рецепте. Проверка уникальности
-    связки ingredient и recipe.
+
+    ...
+
+    Атрибуты
+    --------
+    ingredient: int
+        Ингридиент
+    recipe: int
+        Рецепт
+    amount: int
+        Количество
     """
     ingredient = models.ForeignKey(
         Ingredients,
@@ -147,6 +204,9 @@ class IngredientInRecipe(models.Model):
     )
     amount = models.PositiveSmallIntegerField(
         verbose_name='Количество',
+        validators=[
+            MinValueValidator(1),
+        ],
     )
 
     class Meta:
@@ -168,8 +228,16 @@ class IngredientInRecipe(models.Model):
 class UserRecipeAbstractModel(models.Model):
     """
     Абстрактная модель связки пользователя и
-    рецепта. Используется для подписки на рецепт и
-    добавления рецепта в список покупок.
+    рецепта.
+
+    ...
+
+    Атрибуты
+    --------
+    user: int
+        Ингридиент
+    recipe: int
+        Рецепт
     """
     user = models.ForeignKey(
         User,
@@ -189,8 +257,8 @@ class UserRecipeAbstractModel(models.Model):
 class FavoriteRecipes(UserRecipeAbstractModel):
     """
     Модель подписки пользователя на рецепт.
-    Проверка уникальности user и recipe.
     """
+
     class Meta:
         verbose_name = 'Избранный рецепт'
         verbose_name_plural = 'Избранные рецепты'
@@ -208,8 +276,8 @@ class FavoriteRecipes(UserRecipeAbstractModel):
 class ShoppingCart(UserRecipeAbstractModel):
     """
     Модель формирует список покупок и конкретного пользователя.
-    Проверка уникальности user и recipe.
     """
+
     class Meta:
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Списки покупок'
