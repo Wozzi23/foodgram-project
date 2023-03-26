@@ -1,6 +1,8 @@
 # Foodgram - Продуктовый помощник
 
-[![FOODGRAM_WORKFLOW](https://github.com/Wozzi23/foodgram-project-react/actions/workflows/foodgram_workflow.yml/badge.svg?branch=master)](https://github.com/Wozzi23/foodgram-project-react/actions/workflows/foodgram_workflow.yml)  
+[![FOODGRAM_WORKFLOW](https://github.com/Wozzi23/foodgram-project-react/actions/workflows/foodgram_workflow.yml/badge.svg?branch=master)](https://github.com/Wozzi23/foodgram-project-react/actions/workflows/foodgram_workflow.yml)
+
+WORKFLOW не рабочий так как сервер отключен.
 
 ## Стек технологий
 
@@ -95,16 +97,10 @@ docker-compose exec backend python manage.py collectstatic --noinput
 ```
 * Для Администратора добавлена возможность импорта ингридиентов в базу загрузкой файла
 
-## Сайт
-Сайт доступен по ссылке:
-[http://158.160.40.69](http://158.160.40.69/)
-
-* Логин администратора Wozi56
-* Пароль vfrc48156
 
 ## Документация к API
-API документация доступна по ссылке (создана с помощью redoc):
-[http://158.160.40.69/api/docs/](http://158.160.40.69/api/docs/)
+API документация доступна по пути (создана с помощью redoc):
+[.../api/docs/](.../api/docs/)
 
 ## Авторы
 [Курлаев М.А.](https://github.com/Wozzi23/) - Python разработчик. Разработал бэкенд и деплой для сервиса Foodgram.  
